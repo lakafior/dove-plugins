@@ -1,12 +1,25 @@
 // storytel.com: books and audiobooks in its markets (search answers everything; no detail pages).
-import { browserHeaders } from "../_shared/text.js"
+import { browserHeaders, validIsbn } from "../_shared/text.js"
 
 /** One row per edition the asked format has. `locale`: Storytel market (`pl`). */
 export async function search(query, format, locale) {
   const url = `https://www.storytel.com/api/search.action?q=${encodeURIComponent(query)}&request_locale=${encodeURIComponent(locale)}`
-  const response = await dove.fetch(url, { headers: { ...browserHeaders, Accept: "application/json" } })
+  const headers = {
+    ...browserHeaders,
+    Accept: "application/json",
+    "Accept-Language": locale === "pl" ? "pl-PL,pl;q=0.9" : `${locale};q=0.9,en;q=0.5`,
+    Referer: "https://www.storytel.com/",
+    "X-Requested-With": "XMLHttpRequest",
+  }
+  const response = await dove.fetch(url, { headers })
   if (response.status !== 200) throw new Error(`Storytel answered ${response.status}`)
-  const books = response.json().books || []
+  let data
+  try {
+    data = response.json()
+  } catch {}
+  // Anything but `{ books: [...] }` (an HTML block page, for one) is a failure, not "no results".
+  if (!data || !Array.isArray(data.books)) throw new Error("Storytel answered something other than search results")
+  const books = data.books
   const rows = []
   for (const item of books) {
     const book = item.book
@@ -28,7 +41,8 @@ export async function search(query, format, locale) {
       year: Number(String(book.latestReleaseDate || "").slice(0, 4)) || undefined,
       narrators: edition.narratorAsString ? edition.narratorAsString.split(/,\s*/) : undefined,
       series: series || undefined,
-      isbn: edition.isbn || undefined,
+      // Audiobooks carry Storytel's own numbers in the ISBN field; only real ISBNs count.
+      isbn: validIsbn(edition.isbn),
       link: item.shareUrl || undefined,
       language: book.language && book.language.isoValue,
     })

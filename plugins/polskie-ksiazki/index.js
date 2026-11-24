@@ -18,7 +18,7 @@ globalThis.plugin = {
   manifest: {
     id: "pl.polskie-ksiazki",
     name: "Polskie książki",
-    version: "1.0.0",
+    version: "1.1.0",
     api: 1,
     summary: "lubimyczytac.pl, Audioteka, Storytel",
     capabilities: ["metadata"],

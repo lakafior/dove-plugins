@@ -75,3 +75,42 @@ export const browserHeaders = {
   "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
   "Accept-Language": "pl-PL,pl;q=0.9,en;q=0.5",
 }
+
+/**
+ * A real ISBN, without hyphens, or `undefined`. Shops put their own product numbers in the ISBN field
+ * (Storytel's audiobooks: "0408311111451", lubimyczytac: "000-00-0000-00-0"); only a number whose check digit
+ * holds is kept.
+ */
+export function validIsbn(value) {
+  const digits = String(value || "").replace(/[^0-9Xx]/g, "").toUpperCase()
+  if (/^97[89]\d{10}$/.test(digits)) {
+    const sum = [...digits].reduce((acc, d, i) => acc + Number(d) * (i % 2 ? 3 : 1), 0)
+    return sum % 10 === 0 ? digits : undefined
+  }
+  if (/^\d{9}[\dX]$/.test(digits)) {
+    const sum = [...digits].reduce((acc, d, i) => acc + (d === "X" ? 10 : Number(d)) * (10 - i), 0)
+    return sum % 11 === 0 ? digits : undefined
+  }
+  return undefined
+}
+
+/** Every JSON-LD node on a cheerio page (`@graph` flattened); scripts that do not parse are skipped. */
+export function jsonLdNodes($) {
+  const nodes = []
+  $('script[type="application/ld+json"]').each((_, script) => {
+    try {
+      const data = JSON.parse($(script).text())
+      for (const node of Array.isArray(data) ? data : [data]) {
+        if (!node || typeof node !== "object") continue
+        nodes.push(node)
+        if (Array.isArray(node["@graph"])) nodes.push(...node["@graph"])
+      }
+    } catch {}
+  })
+  return nodes
+}
+
+/** Whether a JSON-LD node's `@type` names one of `types`. */
+export function hasType(node, types) {
+  return [].concat(node["@type"] || []).some((type) => types.includes(type))
+}
